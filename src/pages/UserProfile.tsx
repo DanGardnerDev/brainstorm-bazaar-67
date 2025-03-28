@@ -7,7 +7,8 @@ import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
-import { Loader, Pencil, Trash, Eye } from "lucide-react";
+import { Avatar, AvatarImage, AvatarFallback } from "@/components/ui/avatar";
+import { Loader, Pencil, Trash, Eye, Upload } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { mockPosts } from "@/utils/mockData";
 import { Post } from "@/components/PostCard";
@@ -16,6 +17,7 @@ interface User {
   id: string;
   username: string;
   email: string;
+  profilePicture?: string;
 }
 
 const UserProfile = () => {
@@ -27,6 +29,8 @@ const UserProfile = () => {
   const [deletingPostId, setDeletingPostId] = useState<string | null>(null);
   const [editTitle, setEditTitle] = useState("");
   const [editContent, setEditContent] = useState("");
+  const [profileImageDialogOpen, setProfileImageDialogOpen] = useState(false);
+  const [profileImageUrl, setProfileImageUrl] = useState("");
   const { toast } = useToast();
 
   useEffect(() => {
@@ -40,7 +44,8 @@ const UserProfile = () => {
         const mockUser: User = {
           id: "current-user",
           username: "Current User",
-          email: "user@example.com"
+          email: "user@example.com",
+          profilePicture: "https://images.unsplash.com/photo-1580489944761-15a19d654956?w=250&h=250&fit=crop"
         };
         
         setUser(mockUser);
@@ -104,6 +109,23 @@ const UserProfile = () => {
     });
   };
 
+  const handleUpdateProfileImage = () => {
+    if (!user) return;
+    
+    // This would be an API call in a real app
+    setUser({
+      ...user,
+      profilePicture: profileImageUrl
+    });
+    
+    setProfileImageDialogOpen(false);
+    
+    toast({
+      title: "Profile updated",
+      description: "Your profile picture has been updated successfully",
+    });
+  };
+
   if (isLoading) {
     return (
       <div className="min-h-screen bg-gray-50">
@@ -146,14 +168,30 @@ const UserProfile = () => {
             <CardTitle className="text-2xl font-bold">Your Profile</CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="space-y-4">
-              <div>
-                <p className="font-medium">Username</p>
-                <p className="text-gray-700">{user.username}</p>
+            <div className="flex flex-col md:flex-row gap-6 items-start">
+              <div className="relative group">
+                <Avatar className="h-24 w-24">
+                  <AvatarImage src={user.profilePicture} alt={user.username} />
+                  <AvatarFallback className="text-lg">{user.username.substring(0, 2).toUpperCase()}</AvatarFallback>
+                </Avatar>
+                <Button 
+                  size="sm" 
+                  variant="ghost" 
+                  className="absolute bottom-0 right-0 p-1 bg-white rounded-full shadow-sm opacity-0 group-hover:opacity-100 transition-opacity"
+                  onClick={() => setProfileImageDialogOpen(true)}
+                >
+                  <Pencil className="h-4 w-4" />
+                </Button>
               </div>
-              <div>
-                <p className="font-medium">Email</p>
-                <p className="text-gray-700">{user.email}</p>
+              <div className="space-y-4 flex-1">
+                <div>
+                  <p className="font-medium">Username</p>
+                  <p className="text-gray-700">{user.username}</p>
+                </div>
+                <div>
+                  <p className="font-medium">Email</p>
+                  <p className="text-gray-700">{user.email}</p>
+                </div>
               </div>
             </div>
           </CardContent>
@@ -284,6 +322,54 @@ const UserProfile = () => {
               onClick={confirmDelete}
             >
               Delete
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Profile Picture Update Dialog */}
+      <Dialog open={profileImageDialogOpen} onOpenChange={setProfileImageDialogOpen}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>Update Profile Picture</DialogTitle>
+          </DialogHeader>
+          <div className="py-4 space-y-4">
+            <div className="space-y-2">
+              <label className="text-sm font-medium">Image URL</label>
+              <Input 
+                placeholder="https://example.com/image.jpg"
+                value={profileImageUrl} 
+                onChange={(e) => setProfileImageUrl(e.target.value)}
+              />
+            </div>
+            <div className="flex items-center justify-center">
+              {profileImageUrl ? (
+                <Avatar className="h-20 w-20">
+                  <AvatarImage src={profileImageUrl} alt="Preview" />
+                  <AvatarFallback>
+                    <Loader className="h-8 w-8 animate-spin text-brand-navy" />
+                  </AvatarFallback>
+                </Avatar>
+              ) : (
+                <div className="h-20 w-20 bg-gray-100 rounded-full flex items-center justify-center">
+                  <Upload className="h-8 w-8 text-gray-400" />
+                </div>
+              )}
+            </div>
+            <p className="text-xs text-gray-500 text-center">
+              In a real app, you would be able to upload a file directly.
+            </p>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setProfileImageDialogOpen(false)}>
+              Cancel
+            </Button>
+            <Button 
+              className="bg-brand-orange hover:bg-brand-orange/90" 
+              onClick={handleUpdateProfileImage}
+              disabled={!profileImageUrl.trim()}
+            >
+              Update Picture
             </Button>
           </DialogFooter>
         </DialogContent>

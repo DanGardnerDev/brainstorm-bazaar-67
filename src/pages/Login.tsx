@@ -47,9 +47,9 @@ const Login = () => {
     <div className="min-h-screen flex items-center justify-center bg-gray-50 py-12 px-4 sm:px-6 lg:px-8">
       <Card className="w-full max-w-md">
         <CardHeader className="space-y-2 text-center">
-          <div className="mx-auto mb-4">
-            <span className="text-3xl font-bold text-brand-navy">Synerthree</span>
-          </div>
+          <Link to="/" className="mx-auto mb-4 inline-block">
+            <span className="text-3xl font-bold gradient-text">Synerthree</span>
+          </Link>
           <CardTitle className="text-2xl font-bold">Log in to your account</CardTitle>
         </CardHeader>
         <CardContent>
@@ -81,6 +81,11 @@ const Login = () => {
                   </FormItem>
                 )}
               />
+              <div className="text-right">
+                <Link to="/forgot-password" className="text-sm font-medium text-brand-navy hover:underline">
+                  Forgot password?
+                </Link>
+              </div>
               <Button 
                 type="submit" 
                 className="w-full bg-brand-orange hover:bg-brand-orange/90"
@@ -91,13 +96,16 @@ const Login = () => {
             </form>
           </Form>
         </CardContent>
-        <CardFooter className="flex justify-center">
+        <CardFooter className="flex flex-col space-y-3">
           <p className="text-sm text-gray-600">
             Don't have an account?{" "}
             <Link to="/signup" className="font-medium text-brand-navy hover:underline">
               Sign up
             </Link>
           </p>
+          <Link to="/" className="text-sm text-gray-500 hover:text-brand-orange">
+            ← Back to home page
+          </Link>
         </CardFooter>
       </Card>
     </div>

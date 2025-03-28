@@ -66,16 +66,8 @@ const Dashboard = () => {
           />
         )}
 
-        <div className="mb-6 flex justify-between items-center">
+        <div className="mb-6">
           <h1 className="text-2xl font-bold">Ideas Feed</h1>
-          {!showNewPostForm && (
-            <Button 
-              className="bg-brand-orange hover:bg-brand-orange/90"
-              onClick={() => setShowNewPostForm(true)}
-            >
-              New Idea
-            </Button>
-          )}
         </div>
 
         {isLoading ? (

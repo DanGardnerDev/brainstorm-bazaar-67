@@ -1,20 +1,14 @@
-
 import { ArrowRight } from "lucide-react";
 import { Button } from "@/components/ui/button";
-
 const Hero = () => {
-  return (
-    <section className="pt-24 pb-12 md:pt-32 md:pb-20 bg-gradient-to-b from-white to-brand-gray">
+  return <section className="pt-24 pb-12 md:pt-32 md:pb-20 bg-gradient-to-b from-white to-brand-gray">
       <div className="container mx-auto px-4">
         <div className="flex flex-col lg:flex-row items-center justify-between">
           <div className="w-full lg:w-1/2 mb-12 lg:mb-0 animate-fade-in">
             <h1 className="text-4xl md:text-5xl lg:text-6xl font-bold leading-tight mb-6">
               Connect. Collaborate. <span className="gradient-text">Create.</span>
             </h1>
-            <p className="text-lg md:text-xl text-gray-700 mb-8 max-w-2xl">
-              Synerthree is where entrepreneurs meet to share ideas, find collaborators, 
-              and build the next big thing together.
-            </p>
+            <p className="text-lg md:text-xl text-gray-700 mb-8 max-w-2xl">Synerthree is where entrepreneurs like Dan, Tommy, and Evan meet to share ideas, find collaborators, and build the next big thing together.</p>
             <div className="flex flex-col sm:flex-row gap-4">
               <Button className="bg-brand-orange hover:bg-brand-orange/90 text-white font-semibold text-lg py-6 px-8">
                 Get Started
@@ -65,8 +59,6 @@ const Hero = () => {
           </div>
         </div>
       </div>
-    </section>
-  );
+    </section>;
 };
-
 export default Hero;

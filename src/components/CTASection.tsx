@@ -1,4 +1,8 @@
+
 import { ArrowRight } from "lucide-react";
+import { Link } from "react-router-dom";
+import { Button } from "@/components/ui/button";
+
 const CTASection = () => {
   return <section id="about" className="py-20 bg-brand-navy text-white">
       <div className="container mx-auto px-4">
@@ -28,13 +32,17 @@ const CTASection = () => {
           </div>
           
           <div className="flex flex-col sm:flex-row justify-center gap-4">
-            <button className="btn-primary">
-              Join Now
-              <ArrowRight className="ml-2 h-5 w-5 inline" />
-            </button>
-            <button className="border border-white/30 hover:border-white/50 text-white px-6 py-3 rounded-md transition-all">
-              Request Demo
-            </button>
+            <Link to="/signup">
+              <Button className="bg-brand-orange hover:bg-brand-orange/90 text-white px-6 py-3 h-auto">
+                Join Now
+                <ArrowRight className="ml-2 h-5 w-5" />
+              </Button>
+            </Link>
+            <Link to="/login">
+              <Button variant="outline" className="border border-white/30 hover:border-white/50 text-white px-6 py-3 h-auto">
+                Login
+              </Button>
+            </Link>
           </div>
         </div>
       </div>

@@ -9,7 +9,7 @@ interface AppHeaderProps {
 
 const AppHeader = ({ onNewIdea }: AppHeaderProps) => {
   return (
-    <header className="fixed top-0 left-0 right-0 bg-brand-navy text-white shadow-md z-10">
+    <header className="fixed top-0 left-0 right-0 bg-gray-800 text-white shadow-md z-10">
       <div className="container mx-auto px-4 py-3 flex justify-between items-center">
         <Link to="/dashboard" className="text-2xl font-bold gradient-text">
           Synerthree

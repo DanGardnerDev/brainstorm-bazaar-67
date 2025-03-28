@@ -1,6 +1,7 @@
 
 import Navbar from "@/components/Navbar";
 import Hero from "@/components/Hero";
+import GrokSection from "@/components/GrokSection";
 import IdeasSection from "@/components/IdeasSection";
 import FeaturesSection from "@/components/FeaturesSection";
 import CTASection from "@/components/CTASection";
@@ -12,6 +13,7 @@ const Index = () => {
       <Navbar />
       <main className="flex-grow">
         <Hero />
+        <GrokSection />
         <IdeasSection />
         <FeaturesSection />
         <CTASection />

@@ -1,9 +1,6 @@
-
 import { ArrowRight } from "lucide-react";
-
 const CTASection = () => {
-  return (
-    <section id="about" className="py-20 bg-brand-navy text-white">
+  return <section id="about" className="py-20 bg-brand-navy text-white">
       <div className="container mx-auto px-4">
         <div className="max-w-4xl mx-auto text-center">
           <h2 className="text-3xl md:text-4xl font-bold mb-6">
@@ -16,11 +13,11 @@ const CTASection = () => {
           <div className="bg-white/10 backdrop-blur-sm rounded-xl p-8 mb-12">
             <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
               <div className="text-center">
-                <div className="text-4xl font-bold text-brand-orange mb-2">5,000+</div>
+                <div className="text-4xl font-bold text-brand-orange mb-2">3</div>
                 <p className="text-gray-200">Active Users</p>
               </div>
               <div className="text-center">
-                <div className="text-4xl font-bold text-brand-orange mb-2">1,200+</div>
+                <div className="text-4xl font-bold text-brand-orange mb-2">1,400</div>
                 <p className="text-gray-200">Ideas Shared</p>
               </div>
               <div className="text-center">
@@ -41,8 +38,6 @@ const CTASection = () => {
           </div>
         </div>
       </div>
-    </section>
-  );
+    </section>;
 };
-
 export default CTASection;

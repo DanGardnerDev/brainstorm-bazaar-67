@@ -1,6 +1,5 @@
-
 import { useState } from "react";
-import { Link } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardHeader, CardTitle, CardFooter } from "@/components/ui/card";
@@ -19,6 +18,8 @@ type SignUpValues = z.infer<typeof signUpSchema>;
 
 const SignUp = () => {
   const [isLoading, setIsLoading] = useState(false);
+  const [error, setError] = useState(""); // Added for API error display
+  const navigate = useNavigate(); // For programmatic navigation
 
   const form = useForm<SignUpValues>({
     resolver: zodResolver(signUpSchema),
@@ -31,16 +32,24 @@ const SignUp = () => {
 
   const onSubmit = async (data: SignUpValues) => {
     setIsLoading(true);
+    setError(""); // Clear previous errors
     try {
-      // This would be replaced with actual API call
-      console.log("SignUp data:", data);
-      setTimeout(() => {
-        setIsLoading(false);
-        // Redirect would happen here after successful signup
-        window.location.href = "/login";
-      }, 1000);
+      const response = await fetch(`${process.env.REACT_APP_XANO_API_URL}/auth/signup`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(data),
+      });
+      const result = await response.json();
+      if (response.ok && result.authToken) {
+        localStorage.setItem("token", result.authToken); // Store the token
+        navigate("/dashboard"); // Redirect to dashboard
+      } else {
+        setError(result.message || "Sign-up failed"); // Show Xano's error or a default
+      }
     } catch (error) {
       console.error("SignUp error:", error);
+      setError("Something went wrong. Please try again.");
+    } finally {
       setIsLoading(false);
     }
   };
@@ -96,6 +105,7 @@ const SignUp = () => {
                   </FormItem>
                 )}
               />
+              {error && <p className="text-sm text-[#FF6200]">{error}</p>} {/* Error display */}
               <Button 
                 type="submit" 
                 className="w-full bg-brand-orange hover:bg-brand-orange/90"

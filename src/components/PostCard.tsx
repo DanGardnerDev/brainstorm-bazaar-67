@@ -4,6 +4,7 @@ import { Card, CardContent, CardFooter, CardHeader, CardTitle } from "@/componen
 import { Button } from "@/components/ui/button";
 import { ArrowUp, ArrowDown, MessageSquare } from "lucide-react";
 import { DownvoteModal } from "@/components/DownvoteModal";
+import { useToast } from "@/hooks/use-toast";
 
 export interface Post {
   id: string;
@@ -28,61 +29,147 @@ interface PostCardProps {
 export const PostCard = ({ post, detailed = false }: PostCardProps) => {
   const [currentPost, setCurrentPost] = useState<Post>(post);
   const [showDownvoteModal, setShowDownvoteModal] = useState(false);
+  const { toast } = useToast();
 
-  const handleUpvote = () => {
-    // This would call an API in a real app
-    const newVote = currentPost.userVote === "up" ? null : "up";
-    
-    setCurrentPost({
-      ...currentPost,
-      userVote: newVote,
-      upvotes: newVote === "up" 
-        ? currentPost.upvotes + 1 
-        : currentPost.upvotes - 1,
-      downvotes: currentPost.userVote === "down" 
-        ? currentPost.downvotes - 1 
-        : currentPost.downvotes
-    });
-  };
-
-  const handleDownvote = () => {
-    // If already downvoted, remove the downvote
-    if (currentPost.userVote === "down") {
-      setCurrentPost({
-        ...currentPost,
-        userVote: null,
-        downvotes: currentPost.downvotes - 1
+  const handleUpvote = async () => {
+    const token = localStorage.getItem("token");
+    if (!token) {
+      toast({
+        title: "Error",
+        description: "Please log in to vote",
+        variant: "destructive",
       });
       return;
     }
-    
-    // Otherwise show the modal to confirm downvote
-    setShowDownvoteModal(true);
+
+    const newVote = currentPost.userVote === "up" ? null : "up";
+    try {
+      const response = await fetch(`${process.env.REACT_APP_XANO_API_URL}/votes`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify({ post_id: currentPost.id, vote_type: newVote || "remove" }), // Adjust "remove" logic if Xano supports it
+      });
+      if (!response.ok) throw new Error("Failed to upvote");
+
+      setCurrentPost({
+        ...currentPost,
+        userVote: newVote,
+        upvotes: newVote === "up" 
+          ? currentPost.upvotes + 1 
+          : currentPost.upvotes - 1,
+        downvotes: currentPost.userVote === "down" 
+          ? currentPost.downvotes - 1 
+          : currentPost.downvotes,
+      });
+      toast({
+        title: "Success",
+        description: newVote === "up" ? "Upvoted!" : "Upvote removed",
+      });
+    } catch (err) {
+      console.error("Error upvoting:", err);
+      toast({
+        title: "Error",
+        description: "Failed to upvote. Please try again.",
+        variant: "destructive",
+      });
+    }
   };
 
-  const confirmDownvote = (reason: string) => {
-    // This would send the reason to an API in a real app
-    console.log(`Downvote reason: ${reason}`);
-    
-    setCurrentPost({
-      ...currentPost,
-      userVote: "down",
-      downvotes: currentPost.downvotes + 1,
-      upvotes: currentPost.userVote === "up" 
-        ? currentPost.upvotes - 1 
-        : currentPost.upvotes
-    });
-    
-    setShowDownvoteModal(false);
+  const handleDownvote = () => {
+    const token = localStorage.getItem("token");
+    if (!token) {
+      toast({
+        title: "Error",
+        description: "Please log in to vote",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    if (currentPost.userVote === "down") {
+      handleVoteRemoval("down");
+    } else {
+      setShowDownvoteModal(true);
+    }
+  };
+
+  const handleVoteRemoval = async (voteType: "up" | "down") => {
+    const token = localStorage.getItem("token");
+    try {
+      const response = await fetch(`${process.env.REACT_APP_XANO_API_URL}/votes`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify({ post_id: currentPost.id, vote_type: "remove" }), // Adjust if Xano uses DELETE or different logic
+      });
+      if (!response.ok) throw new Error("Failed to remove vote");
+
+      setCurrentPost({
+        ...currentPost,
+        userVote: null,
+        upvotes: voteType === "up" ? currentPost.upvotes - 1 : currentPost.upvotes,
+        downvotes: voteType === "down" ? currentPost.downvotes - 1 : currentPost.downvotes,
+      });
+      toast({
+        title: "Success",
+        description: `${voteType === "up" ? "Upvote" : "Downvote"} removed`,
+      });
+    } catch (err) {
+      console.error("Error removing vote:", err);
+      toast({
+        title: "Error",
+        description: "Failed to remove vote. Please try again.",
+        variant: "destructive",
+      });
+    }
+  };
+
+  const confirmDownvote = async (reason: string) => {
+    const token = localStorage.getItem("token");
+    try {
+      const response = await fetch(`${process.env.REACT_APP_XANO_API_URL}/votes`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify({ post_id: currentPost.id, vote_type: "down", reason }),
+      });
+      if (!response.ok) throw new Error("Failed to downvote");
+
+      setCurrentPost({
+        ...currentPost,
+        userVote: "down",
+        downvotes: currentPost.downvotes + 1,
+        upvotes: currentPost.userVote === "up" ? currentPost.upvotes - 1 : currentPost.upvotes,
+      });
+      setShowDownvoteModal(false);
+      toast({
+        title: "Success",
+        description: "Downvoted!",
+      });
+    } catch (err) {
+      console.error("Error downvoting:", err);
+      toast({
+        title: "Error",
+        description: "Failed to downvote. Please try again.",
+        variant: "destructive",
+      });
+    }
   };
 
   const formatDate = (dateString: string) => {
     const options: Intl.DateTimeFormatOptions = { 
-      year: 'numeric', 
-      month: 'short', 
-      day: 'numeric',
-      hour: '2-digit',
-      minute: '2-digit'
+      year: "numeric", 
+      month: "short", 
+      day: "numeric",
+      hour: "2-digit",
+      minute: "2-digit",
     };
     return new Date(dateString).toLocaleDateString(undefined, options);
   };

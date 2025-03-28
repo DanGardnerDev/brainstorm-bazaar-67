@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from "react";
 import { Link } from "react-router-dom";
 import AppHeader from "@/components/AppHeader";
@@ -10,7 +9,6 @@ import { Textarea } from "@/components/ui/textarea";
 import { Avatar, AvatarImage, AvatarFallback } from "@/components/ui/avatar";
 import { Loader, Pencil, Trash, Eye, Upload } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
-import { mockPosts } from "@/utils/mockData";
 import { Post } from "@/components/PostCard";
 
 interface User {
@@ -34,24 +32,53 @@ const UserProfile = () => {
   const { toast } = useToast();
 
   useEffect(() => {
-    // This would be API calls in a real app
     const fetchUserAndPosts = async () => {
+      const token = localStorage.getItem("token");
+      if (!token) {
+        setError("Please log in to view your profile");
+        setIsLoading(false);
+        return;
+      }
+
       try {
-        // Simulate API delay
-        await new Promise(resolve => setTimeout(resolve, 800));
-        
-        // Mock user data
-        const mockUser: User = {
-          id: "current-user",
-          username: "Current User",
-          email: "user@example.com",
-          profilePicture: "https://images.unsplash.com/photo-1580489944761-15a19d654956?w=250&h=250&fit=crop"
-        };
-        
-        setUser(mockUser);
-        
-        // Filter posts for this user
-        const filteredPosts = mockPosts.filter(p => p.author.id === "current-user");
+        // Fetch user data
+        const userResponse = await fetch(`${process.env.REACT_APP_XANO_API_URL}/auth/me`, {
+          method: "GET",
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${token}`,
+          },
+        });
+        if (!userResponse.ok) throw new Error("Failed to fetch user data");
+        const userData = await userResponse.json();
+        setUser({
+          id: userData.id,
+          username: userData.username,
+          email: userData.email,
+          profilePicture: userData.profilePicture || "https://images.unsplash.com/photo-1580489944761-15a19d654956?w=250&h=250&fit=crop",
+        });
+
+        // Fetch user posts
+        const postsResponse = await fetch(`${process.env.REACT_APP_XANO_API_URL}/posts`, {
+          method: "GET",
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${token}`,
+          },
+        });
+        if (!postsResponse.ok) throw new Error("Failed to fetch posts");
+        const postsData = await postsResponse.json();
+        const filteredPosts = postsData.filter((p: any) => p.user_id === userData.id).map((p: any) => ({
+          id: p.id,
+          title: p.title,
+          content: p.content,
+          author: { id: p.user_id, username: userData.username },
+          createdAt: p.created_at,
+          upvotes: p.upvotes || 0,
+          downvotes: p.downvotes || 0,
+          commentCount: p.comment_count || 0,
+          userVote: p.userVote || null,
+        }));
         setUserPosts(filteredPosts);
       } catch (err) {
         console.error("Error fetching user profile:", err);
@@ -70,60 +97,135 @@ const UserProfile = () => {
     setEditContent(post.content);
   };
 
-  const handleSaveEdit = () => {
+  const handleSaveEdit = async () => {
     if (!editingPost) return;
     
-    // This would be an API call in a real app
-    const updatedPost = {
-      ...editingPost,
-      title: editTitle,
-      content: editContent
-    };
-    
-    setUserPosts(userPosts.map(p => 
-      p.id === updatedPost.id ? updatedPost : p
-    ));
-    
-    setEditingPost(null);
-    
-    toast({
-      title: "Post updated",
-      description: "Your idea has been updated successfully",
-    });
+    const token = localStorage.getItem("token");
+    if (!token) {
+      toast({
+        title: "Error",
+        description: "Please log in to edit posts",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    try {
+      const response = await fetch(`${process.env.REACT_APP_XANO_API_URL}/posts/${editingPost.id}`, {
+        method: "PATCH", // Assuming Xano supports PATCH; use PUT if not
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify({ title: editTitle, content: editContent }),
+      });
+      if (!response.ok) throw new Error("Failed to update post");
+
+      const updatedPost = {
+        ...editingPost,
+        title: editTitle,
+        content: editContent,
+      };
+      setUserPosts(userPosts.map(p => p.id === updatedPost.id ? updatedPost : p));
+      setEditingPost(null);
+      
+      toast({
+        title: "Post updated",
+        description: "Your idea has been updated successfully",
+      });
+    } catch (err) {
+      console.error("Error updating post:", err);
+      toast({
+        title: "Update failed",
+        description: "There was an error updating your idea",
+        variant: "destructive",
+      });
+    }
   };
 
   const handleDeletePost = (postId: string) => {
     setDeletingPostId(postId);
   };
 
-  const confirmDelete = () => {
+  const confirmDelete = async () => {
     if (!deletingPostId) return;
     
-    // This would be an API call in a real app
-    setUserPosts(userPosts.filter(p => p.id !== deletingPostId));
-    setDeletingPostId(null);
-    
-    toast({
-      title: "Post deleted",
-      description: "Your idea has been deleted successfully",
-    });
+    const token = localStorage.getItem("token");
+    if (!token) {
+      toast({
+        title: "Error",
+        description: "Please log in to delete posts",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    try {
+      const response = await fetch(`${process.env.REACT_APP_XANO_API_URL}/posts/${deletingPostId}`, {
+        method: "DELETE",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`,
+        },
+      });
+      if (!response.ok) throw new Error("Failed to delete post");
+
+      setUserPosts(userPosts.filter(p => p.id !== deletingPostId));
+      setDeletingPostId(null);
+      
+      toast({
+        title: "Post deleted",
+        description: "Your idea has been deleted successfully",
+      });
+    } catch (err) {
+      console.error("Error deleting post:", err);
+      toast({
+        title: "Delete failed",
+        description: "There was an error deleting your idea",
+        variant: "destructive",
+      });
+    }
   };
 
-  const handleUpdateProfileImage = () => {
+  const handleUpdateProfileImage = async () => {
     if (!user) return;
     
-    // This would be an API call in a real app
-    setUser({
-      ...user,
-      profilePicture: profileImageUrl
-    });
-    
-    setProfileImageDialogOpen(false);
-    
-    toast({
-      title: "Profile updated",
-      description: "Your profile picture has been updated successfully",
-    });
+    const token = localStorage.getItem("token");
+    if (!token) {
+      toast({
+        title: "Error",
+        description: "Please log in to update your profile",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    try {
+      const response = await fetch(`${process.env.REACT_APP_XANO_API_URL}/auth/me`, {
+        method: "PATCH", // Hypothetical endpoint; adjust if Xano differs
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify({ profilePicture: profileImageUrl }),
+      });
+      if (!response.ok) throw new Error("Failed to update profile picture");
+
+      setUser({ ...user, profilePicture: profileImageUrl });
+      setProfileImageDialogOpen(false);
+      
+      toast({
+        title: "Profile updated",
+        description: "Your profile picture has been updated successfully",
+      });
+    } catch (err) {
+      console.error("Error updating profile picture:", err);
+      toast({
+        title: "Update failed",
+        description: "There was an error updating your profile picture",
+        variant: "destructive",
+      });
+    }
   };
 
   if (isLoading) {

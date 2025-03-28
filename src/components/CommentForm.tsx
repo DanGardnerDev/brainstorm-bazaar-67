@@ -1,4 +1,3 @@
-
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
@@ -6,7 +5,7 @@ import { useToast } from "@/hooks/use-toast";
 
 interface CommentFormProps {
   postId: string;
-  onCommentAdded: () => void;
+  onCommentAdded: (commentText: string) => void;
 }
 
 export const CommentForm = ({ postId, onCommentAdded }: CommentFormProps) => {
@@ -19,22 +18,36 @@ export const CommentForm = ({ postId, onCommentAdded }: CommentFormProps) => {
     
     if (!comment.trim()) return;
     
+    const token = localStorage.getItem("token");
+    if (!token) {
+      toast({
+        title: "Error",
+        description: "Please log in to comment",
+        variant: "destructive",
+      });
+      return;
+    }
+
     setIsSubmitting(true);
     
     try {
-      // This would be an API call in a real app
-      console.log(`Adding comment to post ${postId}: ${comment}`);
-      
-      // Simulate API delay
-      await new Promise(resolve => setTimeout(resolve, 500));
-      
+      const response = await fetch("https://x6ma-scmt-8w96.n7c.xano.io/api:bE-tSUfR/comment", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify({ post_id: postId, content: comment }),
+      });
+      if (!response.ok) throw new Error("Failed to post comment");
+
       toast({
         title: "Comment added",
         description: "Your comment has been posted successfully",
       });
       
+      onCommentAdded(comment);
       setComment("");
-      onCommentAdded();
     } catch (error) {
       console.error("Error posting comment:", error);
       toast({

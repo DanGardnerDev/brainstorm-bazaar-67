@@ -1,8 +1,8 @@
-
 import { useState } from "react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
+import { useToast } from "@/hooks/use-toast";
 
 interface DownvoteModalProps {
   open: boolean;
@@ -12,10 +12,23 @@ interface DownvoteModalProps {
 
 export const DownvoteModal = ({ open, onClose, onConfirm }: DownvoteModalProps) => {
   const [reason, setReason] = useState("");
+  const { toast } = useToast();
 
   const handleConfirm = () => {
+    if (!reason.trim()) {
+      toast({
+        title: "Missing Reason",
+        description: "Please provide a reason for your downvote.",
+        variant: "destructive",
+      });
+      return;
+    }
     onConfirm(reason);
     setReason("");
+    toast({
+      title: "Downvote Submitted",
+      description: "Your feedback has been recorded.",
+    });
   };
 
   const handleClose = () => {

@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from "react";
 import AppHeader from "@/components/AppHeader";
 import { PostCard, Post } from "@/components/PostCard";
@@ -6,7 +5,6 @@ import { NewPostForm } from "@/components/NewPostForm";
 import { Button } from "@/components/ui/button";
 import { useToast } from "@/hooks/use-toast";
 import { X, Loader } from "lucide-react";
-import { mockPosts } from "@/utils/mockData";
 
 const Dashboard = () => {
   const [posts, setPosts] = useState<Post[]>([]);
@@ -15,43 +13,83 @@ const Dashboard = () => {
   const [showNewPostForm, setShowNewPostForm] = useState(false);
   const { toast } = useToast();
 
-  useEffect(() => {
-    // This would be an API call in a real app
-    const fetchPosts = async () => {
-      try {
-        // Simulate API delay
-        await new Promise(resolve => setTimeout(resolve, 1000));
-        setPosts(mockPosts);
-      } catch (err) {
-        console.error("Error fetching posts:", err);
-        setError("Failed to load ideas. Please try again.");
-      } finally {
-        setIsLoading(false);
-      }
-    };
+  const fetchPosts = async () => {
+    const token = localStorage.getItem("token");
+    try {
+      const response = await fetch("https://x6ma-scmt-8w96.n7c.xano.io/api:bE-tSUfR/post", {
+        method: "GET",
+        headers: { 
+          "Content-Type": "application/json",
+          ...(token ? { Authorization: `Bearer ${token}` } : {}),
+        },
+      });
+      if (!response.ok) throw new Error("Failed to fetch posts");
+      const data = await response.json();
+      const mappedPosts: Post[] = data.map((post: any) => ({
+        id: post.id,
+        title: post.title,
+        content: post.content,
+        author: { id: post.user_id, username: "User" },
+        createdAt: post.created_at,
+        upvotes: post.upvotes || 0,
+        downvotes: post.downvotes || 0,
+        commentCount: post.comment_count || 0,
+        userVote: null,
+      }));
+      setPosts(mappedPosts);
+    } catch (err) {
+      console.error("Error fetching posts:", err);
+      setError("Failed to load ideas. Please try again.");
+    } finally {
+      setIsLoading(false);
+    }
+  };
 
+  useEffect(() => {
     fetchPosts();
   }, []);
 
-  const handleNewPost = (postData: { title: string; content: string }) => {
-    // This would be an API call in a real app
-    const newPost: Post = {
-      id: `temp-${Date.now()}`,
-      title: postData.title,
-      content: postData.content,
-      author: {
-        id: "current-user",
-        username: "Current User"
-      },
-      createdAt: new Date().toISOString(),
-      upvotes: 0,
-      downvotes: 0,
-      commentCount: 0,
-      userVote: null
-    };
+  useEffect(() => {
+    const handleFocus = () => fetchPosts();
+    window.addEventListener("focus", handleFocus);
+    return () => window.removeEventListener("focus", handleFocus);
+  }, []);
 
-    setPosts([newPost, ...posts]);
-    setShowNewPostForm(false);
+  const handleNewPost = async (postData: { title: string; content: string }) => {
+    const token = localStorage.getItem("token");
+    if (!token) {
+      toast({
+        title: "Error",
+        description: "Please log in to post an idea",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    try {
+      const response = await fetch(`${import.meta.env.VITE_REACT_APP_XANO_API_URL}/posts`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify(postData),
+      });
+      if (!response.ok) throw new Error("Failed to create post");
+      await fetchPosts(); // Refetch posts after adding
+      setShowNewPostForm(false);
+      toast({
+        title: "Success",
+        description: "Your idea has been posted!",
+      });
+    } catch (err) {
+      console.error("Error creating post:", err);
+      toast({
+        title: "Error",
+        description: "Failed to post your idea. Please try again.",
+        variant: "destructive",
+      });
+    }
   };
 
   return (

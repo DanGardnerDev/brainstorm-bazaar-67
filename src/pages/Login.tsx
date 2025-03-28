@@ -1,6 +1,5 @@
-
 import { useState } from "react";
-import { Link } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardHeader, CardTitle, CardFooter } from "@/components/ui/card";
@@ -18,6 +17,8 @@ type LoginValues = z.infer<typeof loginSchema>;
 
 const Login = () => {
   const [isLoading, setIsLoading] = useState(false);
+  const [error, setError] = useState(""); // Added for API error display
+  const navigate = useNavigate(); // For programmatic navigation
 
   const form = useForm<LoginValues>({
     resolver: zodResolver(loginSchema),
@@ -29,16 +30,24 @@ const Login = () => {
 
   const onSubmit = async (data: LoginValues) => {
     setIsLoading(true);
+    setError("");
     try {
-      // This would be replaced with actual API call
-      console.log("Login data:", data);
-      setTimeout(() => {
-        setIsLoading(false);
-        // Redirect would happen here after successful login
-        window.location.href = "/dashboard";
-      }, 1000);
+      const response = await fetch(`${import.meta.env.VITE_REACT_APP_XANO_API_URL}/auth/login`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(data),
+      });
+      const result = await response.json();
+      if (response.ok && result.authToken) {
+        localStorage.setItem("token", result.authToken);
+        navigate("/dashboard");
+      } else {
+        setError(result.message || "Invalid credentials");
+      }
     } catch (error) {
       console.error("Login error:", error);
+      setError("Something went wrong. Please try again.");
+    } finally {
       setIsLoading(false);
     }
   };
@@ -81,6 +90,7 @@ const Login = () => {
                   </FormItem>
                 )}
               />
+              {error && <p className="text-sm text-[#FF6200]">{error}</p>} {/* Error display */}
               <div className="text-right">
                 <Link to="/forgot-password" className="text-sm font-medium text-brand-navy hover:underline">
                   Forgot password?

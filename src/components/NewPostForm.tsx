@@ -1,4 +1,3 @@
-
 import { useState } from "react";
 import { Card, CardContent, CardHeader, CardTitle, CardFooter } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -28,14 +27,32 @@ export const NewPostForm = ({ onPost, onCancel }: NewPostFormProps) => {
       });
       return;
     }
+
+    const token = localStorage.getItem("token");
+    if (!token) {
+      toast({
+        title: "Error",
+        description: "Please log in to post an idea",
+        variant: "destructive",
+      });
+      return;
+    }
     
     setIsSubmitting(true);
     
     try {
-      // This would be an API call in a real app
-      await new Promise(resolve => setTimeout(resolve, 500));
-      
-      onPost({ title, content });
+      const response = await fetch(`${process.env.REACT_APP_XANO_API_URL}/posts`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify({ title, content }),
+      });
+      if (!response.ok) throw new Error("Failed to post idea");
+
+      const newPost = await response.json();
+      onPost({ title, content }); // Pass to parent for state update
       setTitle("");
       setContent("");
       

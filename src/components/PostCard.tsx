@@ -1,8 +1,8 @@
 import { useState } from "react";
 import { Link } from "react-router-dom";
-import { Card, CardContent, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent, CardHeader, CardTitle, CardFooter } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { ArrowUp, ArrowDown, MessageSquare } from "lucide-react";
+import { ArrowUp, ArrowDown, MessageSquare, Trash2, Edit } from "lucide-react";
 import { DownvoteModal } from "@/components/DownvoteModal";
 import { useToast } from "@/hooks/use-toast";
 
@@ -24,16 +24,27 @@ export interface Post {
 interface PostCardProps {
   post: Post;
   detailed?: boolean;
+  onVoteUpdate?: () => void;
+  onDelete?: () => void;
+  onEdit?: () => void;
 }
 
-export const PostCard = ({ post, detailed = false }: PostCardProps) => {
-  const [currentPost, setCurrentPost] = useState<Post>(post);
+export const PostCard = ({ post, detailed = false, onVoteUpdate, onDelete, onEdit }: PostCardProps) => {
   const [showDownvoteModal, setShowDownvoteModal] = useState(false);
   const { toast } = useToast();
+  const currentUserId = localStorage.getItem("user_id")?.trim(); // Trim to remove any whitespace
+  const postAuthorId = String(post.author.id).trim(); // Convert to string and trim
+  const isAuthor = currentUserId === postAuthorId;
+
+  // Debug logs to verify values and types
+  console.log("PostCard - currentUserId:", currentUserId, "Type:", typeof currentUserId);
+  console.log("PostCard - post.author.id:", postAuthorId, "Type:", typeof postAuthorId);
+  console.log("PostCard - isAuthor:", isAuthor);
 
   const handleUpvote = async () => {
     const token = localStorage.getItem("token");
-    if (!token) {
+    const userId = localStorage.getItem("user_id");
+    if (!token || !userId) {
       toast({
         title: "Error",
         description: "Please log in to vote",
@@ -42,32 +53,42 @@ export const PostCard = ({ post, detailed = false }: PostCardProps) => {
       return;
     }
 
-    const newVote = currentPost.userVote === "up" ? null : "up";
+    const newVote = post.userVote === "up" ? null : "up";
     try {
-      const response = await fetch(`${process.env.REACT_APP_XANO_API_URL}/votes`, {
+      const response = await fetch("https://x6ma-scmt-8w96.n7c.xano.io/api:bE-tSUfR/vote", {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
           Authorization: `Bearer ${token}`,
         },
-        body: JSON.stringify({ post_id: currentPost.id, vote_type: newVote || "remove" }), // Adjust "remove" logic if Xano supports it
+        body: JSON.stringify({ 
+          vote_type: newVote || "remove", 
+          post_id: post.id, 
+          user_id: userId, 
+          reason: null
+        }),
       });
-      if (!response.ok) throw new Error("Failed to upvote");
+      const result = await response.json();
 
-      setCurrentPost({
-        ...currentPost,
-        userVote: newVote,
-        upvotes: newVote === "up" 
-          ? currentPost.upvotes + 1 
-          : currentPost.upvotes - 1,
-        downvotes: currentPost.userVote === "down" 
-          ? currentPost.downvotes - 1 
-          : currentPost.downvotes,
-      });
-      toast({
-        title: "Success",
-        description: newVote === "up" ? "Upvoted!" : "Upvote removed",
-      });
+      if (result === "vote_exists") {
+        toast({
+          title: "Error",
+          description: "You have already voted",
+          variant: "destructive",
+        });
+        return;
+      }
+
+      if (result === "success") {
+        toast({
+          title: "Success",
+          description: newVote === "up" ? "Upvoted!" : "Upvote removed",
+        });
+      } else {
+        throw new Error("Unexpected response from server");
+      }
+
+      if (onVoteUpdate) onVoteUpdate();
     } catch (err) {
       console.error("Error upvoting:", err);
       toast({
@@ -89,7 +110,7 @@ export const PostCard = ({ post, detailed = false }: PostCardProps) => {
       return;
     }
 
-    if (currentPost.userVote === "down") {
+    if (post.userVote === "down") {
       handleVoteRemoval("down");
     } else {
       setShowDownvoteModal(true);
@@ -98,27 +119,42 @@ export const PostCard = ({ post, detailed = false }: PostCardProps) => {
 
   const handleVoteRemoval = async (voteType: "up" | "down") => {
     const token = localStorage.getItem("token");
+    const userId = localStorage.getItem("user_id");
     try {
-      const response = await fetch(`${process.env.REACT_APP_XANO_API_URL}/votes`, {
+      const response = await fetch("https://x6ma-scmt-8w96.n7c.xano.io/api:bE-tSUfR/vote", {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
           Authorization: `Bearer ${token}`,
         },
-        body: JSON.stringify({ post_id: currentPost.id, vote_type: "remove" }), // Adjust if Xano uses DELETE or different logic
+        body: JSON.stringify({ 
+          vote_type: "remove", 
+          post_id: post.id, 
+          user_id: userId, 
+          reason: null 
+        }),
       });
-      if (!response.ok) throw new Error("Failed to remove vote");
+      const result = await response.json();
 
-      setCurrentPost({
-        ...currentPost,
-        userVote: null,
-        upvotes: voteType === "up" ? currentPost.upvotes - 1 : currentPost.upvotes,
-        downvotes: voteType === "down" ? currentPost.downvotes - 1 : currentPost.downvotes,
-      });
-      toast({
-        title: "Success",
-        description: `${voteType === "up" ? "Upvote" : "Downvote"} removed`,
-      });
+      if (result === "vote_exists") {
+        toast({
+          title: "Error",
+          description: "You have already voted",
+          variant: "destructive",
+        });
+        return;
+      }
+
+      if (result === "success") {
+        toast({
+          title: "Success",
+          description: `${voteType === "up" ? "Upvote" : "Downvote"} removed`,
+        });
+      } else {
+        throw new Error("Unexpected response from server");
+      }
+
+      if (onVoteUpdate) onVoteUpdate();
     } catch (err) {
       console.error("Error removing vote:", err);
       toast({
@@ -131,33 +167,88 @@ export const PostCard = ({ post, detailed = false }: PostCardProps) => {
 
   const confirmDownvote = async (reason: string) => {
     const token = localStorage.getItem("token");
+    const userId = localStorage.getItem("user_id");
     try {
-      const response = await fetch(`${process.env.REACT_APP_XANO_API_URL}/votes`, {
+      const response = await fetch("https://x6ma-scmt-8w96.n7c.xano.io/api:bE-tSUfR/vote", {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
           Authorization: `Bearer ${token}`,
         },
-        body: JSON.stringify({ post_id: currentPost.id, vote_type: "down", reason }),
+        body: JSON.stringify({ 
+          vote_type: "down", 
+          post_id: post.id, 
+          user_id: userId, 
+          reason 
+        }),
       });
-      if (!response.ok) throw new Error("Failed to downvote");
+      const result = await response.json();
 
-      setCurrentPost({
-        ...currentPost,
-        userVote: "down",
-        downvotes: currentPost.downvotes + 1,
-        upvotes: currentPost.userVote === "up" ? currentPost.upvotes - 1 : currentPost.upvotes,
-      });
+      if (result === "vote_exists") {
+        toast({
+          title: "Error",
+          description: "You have already voted",
+          variant: "destructive",
+        });
+        setShowDownvoteModal(false);
+        return;
+      }
+
+      if (result === "success") {
+        toast({
+          title: "Success",
+          description: "Downvoted!",
+        });
+      } else {
+        throw new Error("Unexpected response from server");
+      }
+
       setShowDownvoteModal(false);
-      toast({
-        title: "Success",
-        description: "Downvoted!",
-      });
+      if (onVoteUpdate) onVoteUpdate();
     } catch (err) {
       console.error("Error downvoting:", err);
       toast({
         title: "Error",
         description: "Failed to downvote. Please try again.",
+        variant: "destructive",
+      });
+    }
+  };
+
+  const handleDelete = async () => {
+    const token = localStorage.getItem("token");
+    if (!token) {
+      toast({
+        title: "Error",
+        description: "Please log in to delete this post",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    if (!window.confirm("Are you sure you want to delete this post?")) return;
+
+    try {
+      const response = await fetch(`https://x6ma-scmt-8w96.n7c.xano.io/api:bE-tSUfR/post/${post.id}`, {
+        method: "DELETE",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`,
+        },
+      });
+      if (!response.ok) throw new Error("Failed to delete post");
+
+      toast({
+        title: "Success",
+        description: "Post deleted successfully",
+      });
+
+      if (onDelete) onDelete();
+    } catch (err) {
+      console.error("Error deleting post:", err);
+      toast({
+        title: "Error",
+        description: "Failed to delete post. Please try again.",
         variant: "destructive",
       });
     }
@@ -175,10 +266,18 @@ export const PostCard = ({ post, detailed = false }: PostCardProps) => {
   };
 
   const contentDisplay = detailed 
-    ? currentPost.content 
-    : currentPost.content.length > 150 
-      ? `${currentPost.content.slice(0, 150)}...` 
-      : currentPost.content;
+    ? post.content 
+    : post.content.length > 150 
+      ? `${post.content.slice(0, 150)}...` 
+      : post.content;
+
+  const titleContent = detailed ? (
+    post.title
+  ) : (
+    <Link to={`/ideas/${post.id}`} className="hover:text-brand-orange transition-colors">
+      {post.title}
+    </Link>
+  );
 
   return (
     <>
@@ -187,16 +286,10 @@ export const PostCard = ({ post, detailed = false }: PostCardProps) => {
           <div className="flex justify-between items-start">
             <div>
               <CardTitle className="text-xl font-bold mb-1">
-                {detailed ? (
-                  currentPost.title
-                ) : (
-                  <Link to={`/ideas/${currentPost.id}`} className="hover:text-brand-orange transition-colors">
-                    {currentPost.title}
-                  </Link>
-                )}
+                {titleContent}
               </CardTitle>
               <p className="text-sm text-gray-500">
-                Posted by {currentPost.author.username} • {formatDate(currentPost.createdAt)}
+                Posted by {post.author.username} • {formatDate(post.createdAt)}
               </p>
             </div>
             <div className="flex space-x-1">
@@ -204,20 +297,42 @@ export const PostCard = ({ post, detailed = false }: PostCardProps) => {
                 variant="ghost" 
                 size="sm" 
                 onClick={handleUpvote}
-                className={currentPost.userVote === "up" ? "text-brand-orange" : ""}
+                className={post.userVote === "up" ? "text-brand-orange" : ""}
               >
-                <ArrowUp className={currentPost.userVote === "up" ? "text-brand-orange" : ""} />
-                <span className="ml-1">{currentPost.upvotes}</span>
+                <ArrowUp className={post.userVote === "up" ? "text-brand-orange" : ""} />
+                <span className="ml-1">{post.upvotes}</span>
               </Button>
               <Button 
                 variant="ghost" 
                 size="sm" 
                 onClick={handleDownvote}
-                className={currentPost.userVote === "down" ? "text-brand-navy" : ""}
+                className={post.userVote === "down" ? "text-brand-navy" : ""}
               >
-                <ArrowDown className={currentPost.userVote === "down" ? "text-brand-navy" : ""} />
-                <span className="ml-1">{currentPost.downvotes}</span>
+                <ArrowDown className={post.userVote === "down" ? "text-brand-navy" : ""} />
+                <span className="ml-1">{post.downvotes}</span>
               </Button>
+              {isAuthor && (
+                <div className="flex space-x-1">
+                  {detailed && (
+                    <Button 
+                      variant="ghost" 
+                      size="sm" 
+                      onClick={onEdit}
+                      className="text-blue-500 hover:text-blue-700 p-1"
+                    >
+                      <Edit className="h-4 w-4" />
+                    </Button>
+                  )}
+                  <Button 
+                    variant="ghost" 
+                    size="sm" 
+                    onClick={handleDelete}
+                    className="text-red-500 hover:text-red-700 p-1"
+                  >
+                    <Trash2 className="h-4 w-4" />
+                  </Button>
+                </div>
+              )}
             </div>
           </div>
         </CardHeader>
@@ -227,7 +342,7 @@ export const PostCard = ({ post, detailed = false }: PostCardProps) => {
         <CardFooter className="pt-0">
           <div className="flex items-center text-gray-500">
             <MessageSquare className="h-4 w-4 mr-1" />
-            <span className="text-sm">{currentPost.commentCount} comments</span>
+            <span className="text-sm">{post.commentCount} comments</span>
           </div>
         </CardFooter>
       </Card>

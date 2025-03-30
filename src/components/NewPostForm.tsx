@@ -29,7 +29,8 @@ export const NewPostForm = ({ onPost, onCancel }: NewPostFormProps) => {
     }
 
     const token = localStorage.getItem("token");
-    if (!token) {
+    const userId = localStorage.getItem("user_id");
+    if (!token || !userId) {
       toast({
         title: "Error",
         description: "Please log in to post an idea",
@@ -41,25 +42,24 @@ export const NewPostForm = ({ onPost, onCancel }: NewPostFormProps) => {
     setIsSubmitting(true);
     
     try {
-      const response = await fetch(`${process.env.REACT_APP_XANO_API_URL}/posts`, {
+      const response = await fetch("https://x6ma-scmt-8w96.n7c.xano.io/api:bE-tSUfR/post", {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
           Authorization: `Bearer ${token}`,
         },
-        body: JSON.stringify({ title, content }),
+        body: JSON.stringify({ title, content, user_id: userId }), // Send user_id explicitly
       });
       if (!response.ok) throw new Error("Failed to post idea");
 
-      const newPost = await response.json();
-      onPost({ title, content }); // Pass to parent for state update
-      setTitle("");
-      setContent("");
-      
       toast({
         title: "Idea posted",
         description: "Your idea has been posted successfully",
       });
+      
+      onPost({ title, content });
+      setTitle("");
+      setContent("");
     } catch (error) {
       console.error("Error posting idea:", error);
       toast({

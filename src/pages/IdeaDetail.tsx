@@ -7,6 +7,10 @@ import { CommentForm } from "@/components/CommentForm";
 import { GrokInsight } from "@/components/GrokInsight";
 import { Loader, ArrowLeft } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Textarea } from "@/components/ui/textarea";
+import { useToast } from "@/hooks/use-toast";
+import { Card, CardContent, CardHeader, CardTitle, CardFooter } from "@/components/ui/card";
 
 const IdeaDetail = () => {
   const { ideaId } = useParams<{ ideaId: string }>();
@@ -14,47 +18,62 @@ const IdeaDetail = () => {
   const [comments, setComments] = useState<CommentType[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [isEditing, setIsEditing] = useState(false);
+  const [editTitle, setEditTitle] = useState("");
+  const [editContent, setEditContent] = useState("");
   const navigate = useNavigate();
+  const { toast } = useToast();
 
   const fetchIdeaAndComments = async () => {
     try {
-      const response = await fetch(`https://x6ma-scmt-8w96.n7c.xano.io/api:bE-tSUfR/post/${ideaId}`, {
+      const postResponse = await fetch(`https://x6ma-scmt-8w96.n7c.xano.io/api:bE-tSUfR/post/${ideaId}`, {
         method: "GET",
         headers: { "Content-Type": "application/json" },
       });
-      if (!response.ok) {
-        if (response.status === 404) throw new Error("Idea not found");
+      if (!postResponse.ok) {
+        if (postResponse.status === 404) throw new Error("Idea not found");
         throw new Error("Failed to fetch idea");
       }
-      const data = await response.json();
+      const postData = await postResponse.json();
+      console.log("Fetched post:", postData);
+
+      const commentsResponse = await fetch(`https://x6ma-scmt-8w96.n7c.xano.io/api:bE-tSUfR/get_post_comments?post_id=${ideaId}`, {
+        method: "GET",
+        headers: { "Content-Type": "application/json" },
+      });
+      if (!commentsResponse.ok) throw new Error("Failed to fetch comments");
+      const commentsData = await commentsResponse.json();
+
+      const username = localStorage.getItem("username") || "User";
       const mappedPost: Post = {
-        id: data.id,
-        title: data.title,
-        content: data.content,
-        author: { id: data.user_id, username: "User" },
-        createdAt: data.created_at,
-        upvotes: data.upvotes || 0,
-        downvotes: data.downvotes || 0,
-        commentCount: data.comments?.length || 0,
+        id: postData.id,
+        title: postData.title,
+        content: postData.content,
+        author: { 
+          id: String(postData.user_id),
+          username: postData._user?.name || (postData.user_id === localStorage.getItem("user_id") ? username : "User") 
+        },
+        createdAt: postData.created_at,
+        upvotes: postData.upvote_count || 0,
+        downvotes: postData.downvote_count || 0,
+        commentCount: postData.comment_count || commentsData.length || 0,
         userVote: null,
       };
+      console.log("Mapped post:", mappedPost);
       setPost(mappedPost);
-      const serverComments: CommentType[] = (data.comments || []).map((c: any) => ({
+      setEditTitle(mappedPost.title);
+      setEditContent(mappedPost.content);
+
+      const mappedComments: CommentType[] = commentsData.map((c: any) => ({
         id: c.id,
         text: c.content,
-        author: { id: c.user_id, username: "User" },
+        author: { 
+          id: String(c.user_id),
+          username: c._user?.name || (c.user_id === localStorage.getItem("user_id") ? username : "User") 
+        },
         createdAt: c.created_at,
       }));
-      // Merge server comments with local optimistic updates
-      setComments(prevComments => {
-        const mergedComments = [...serverComments];
-        prevComments.forEach(localComment => {
-          if (!mergedComments.some(c => c.id === localComment.id)) {
-            mergedComments.unshift(localComment);
-          }
-        });
-        return mergedComments;
-      });
+      setComments(mappedComments); // Replace comments, don’t merge
     } catch (err) {
       console.error("Error fetching idea details:", err);
       setError(err.message || "Failed to load idea details. Please try again.");
@@ -73,16 +92,139 @@ const IdeaDetail = () => {
     return () => window.removeEventListener("focus", handleFocus);
   }, [ideaId]);
 
-  const handleCommentAdded = (commentText: string) => {
-    const newComment: CommentType = {
-      id: `temp-${Date.now()}`,
-      text: commentText,
-      author: { id: "current-user", username: "Current User" },
-      createdAt: new Date().toISOString(),
-    };
-    setComments(prev => [newComment, ...prev]);
-    if (post) {
-      setPost({ ...post, commentCount: post.commentCount + 1 });
+  const handleCommentAdded = (newComment: CommentType) => {
+    // Optimistically update the UI with the new comment
+    setComments((prevComments) => [newComment, ...prevComments]);
+
+    // Alternative: Refetch comments from the server to ensure consistency
+    // fetchIdeaAndComments();
+  };
+
+  const handleDeleteComment = async (commentId: string) => {
+    const token = localStorage.getItem("token");
+    if (!token) {
+      toast({
+        title: "Error",
+        description: "Please log in to delete this comment",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    try {
+      const response = await fetch(`https://x6ma-scmt-8w96.n7c.xano.io/api:bE-tSUfR/comment/${commentId}`, {
+        method: "DELETE",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`,
+        },
+      });
+      if (!response.ok) throw new Error("Failed to delete comment");
+
+      toast({
+        title: "Success",
+        description: "Comment deleted successfully",
+      });
+
+      await fetchIdeaAndComments();
+    } catch (err) {
+      console.error("Error deleting comment:", err);
+      toast({
+        title: "Error",
+        description: "Failed to delete comment. Please try again.",
+        variant: "destructive",
+      });
+    }
+  };
+
+  const handleEditPost = async () => {
+    const token = localStorage.getItem("token");
+    if (!token) {
+      toast({
+        title: "Error",
+        description: "Please log in to edit this post",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    if (!editTitle.trim() || !editContent.trim()) {
+      toast({
+        title: "Error",
+        description: "Title and content cannot be empty",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    try {
+      const response = await fetch(`https://x6ma-scmt-8w96.n7c.xano.io/api:bE-tSUfR/post/${ideaId}`, {
+        method: "PATCH",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify({
+          post_id: ideaId,
+          title: editTitle,
+          content: editContent,
+        }),
+      });
+      if (!response.ok) throw new Error("Failed to update post");
+
+      toast({
+        title: "Success",
+        description: "Post updated successfully",
+      });
+
+      setIsEditing(false);
+      await fetchIdeaAndComments();
+    } catch (err) {
+      console.error("Error updating post:", err);
+      toast({
+        title: "Error",
+        description: "Failed to update post. Please try again.",
+        variant: "destructive",
+      });
+    }
+  };
+
+  const handleDeletePost = async () => {
+    const token = localStorage.getItem("token");
+    if (!token) {
+      toast({
+        title: "Error",
+        description: "Please log in to delete this post",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    if (!window.confirm("Are you sure you want to delete this post?")) return;
+
+    try {
+      const response = await fetch(`https://x6ma-scmt-8w96.n7c.xano.io/api:bE-tSUfR/post/${ideaId}`, {
+        method: "DELETE",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`,
+        },
+      });
+      if (!response.ok) throw new Error("Failed to delete post");
+
+      toast({
+        title: "Success",
+        description: "Post deleted successfully",
+      });
+
+      navigate("/dashboard");
+    } catch (err) {
+      console.error("Error deleting post:", err);
+      toast({
+        title: "Error",
+        description: "Failed to delete post. Please try again.",
+        variant: "destructive",
+      });
     }
   };
 
@@ -129,11 +271,62 @@ const IdeaDetail = () => {
             Back to Ideas
           </Link>
           
-          <PostCard post={post} detailed={true} />
+          {isEditing ? (
+            <Card className="mb-6 border border-gray-200 shadow-sm">
+              <CardHeader>
+                <CardTitle className="text-xl text-gray-800">Edit Post</CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                <div>
+                  <Input
+                    placeholder="Title"
+                    value={editTitle}
+                    onChange={(e) => setEditTitle(e.target.value)}
+                    className="mb-2 border-gray-300 focus:border-brand-orange"
+                  />
+                  <Textarea
+                    placeholder="Describe your idea..."
+                    value={editContent}
+                    onChange={(e) => setEditContent(e.target.value)}
+                    className="min-h-[100px] border-gray-300 focus:border-brand-orange"
+                  />
+                </div>
+              </CardContent>
+              <CardFooter className="flex justify-end space-x-2">
+                <Button 
+                  type="button" 
+                  variant="outline" 
+                  onClick={() => {
+                    setIsEditing(false);
+                    setEditTitle(post.title);
+                    setEditContent(post.content);
+                  }}
+                  className="border-gray-300 text-gray-700 hover:bg-gray-100"
+                >
+                  Cancel
+                </Button>
+                <Button 
+                  type="button" 
+                  className="bg-brand-orange hover:bg-brand-orange/90 text-white"
+                  onClick={handleEditPost}
+                >
+                  Save Changes
+                </Button>
+              </CardFooter>
+            </Card>
+          ) : (
+            <PostCard 
+              post={post} 
+              detailed={true} 
+              onVoteUpdate={fetchIdeaAndComments}
+              onDelete={handleDeletePost}
+              onEdit={() => setIsEditing(true)}
+            />
+          )}
           
           <GrokInsight postTitle={post.title} postContent={post.content} postId={post.id} />
           
-          <h2 className="text-xl font-bold mb-4">Comments ({comments.length})</h2>
+          <h2 className="text-xl font-bold mb-4 text-gray-800">Comments ({comments.length})</h2>
           
           <CommentForm postId={post.id} onCommentAdded={handleCommentAdded} />
           
@@ -142,7 +335,11 @@ const IdeaDetail = () => {
           ) : (
             <div className="space-y-2">
               {comments.map((comment) => (
-                <Comment key={comment.id} comment={comment} />
+                <Comment 
+                  key={comment.id} 
+                  comment={comment} 
+                  onDelete={() => handleDeleteComment(comment.id)}
+                />
               ))}
             </div>
           )}

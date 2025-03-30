@@ -5,6 +5,7 @@ import { NewPostForm } from "@/components/NewPostForm";
 import { Button } from "@/components/ui/button";
 import { useToast } from "@/hooks/use-toast";
 import { X, Loader } from "lucide-react";
+import { useNavigate } from "react-router-dom";
 
 const Dashboard = () => {
   const [posts, setPosts] = useState<Post[]>([]);
@@ -12,9 +13,11 @@ const Dashboard = () => {
   const [error, setError] = useState<string | null>(null);
   const [showNewPostForm, setShowNewPostForm] = useState(false);
   const { toast } = useToast();
+  const navigate = useNavigate();
 
   const fetchPosts = async () => {
     const token = localStorage.getItem("token");
+    const username = localStorage.getItem("username") || "User";
     try {
       const response = await fetch("https://x6ma-scmt-8w96.n7c.xano.io/api:bE-tSUfR/post", {
         method: "GET",
@@ -25,17 +28,22 @@ const Dashboard = () => {
       });
       if (!response.ok) throw new Error("Failed to fetch posts");
       const data = await response.json();
+      console.log("Fetched posts:", data);
       const mappedPosts: Post[] = data.map((post: any) => ({
         id: post.id,
         title: post.title,
         content: post.content,
-        author: { id: post.user_id, username: "User" },
+        author: { 
+          id: String(post.user_id), // Ensure author.id is a string
+          username: post._user?.name || (post.user_id === localStorage.getItem("user_id") ? username : "User") 
+        },
         createdAt: post.created_at,
-        upvotes: post.upvotes || 0,
-        downvotes: post.downvotes || 0,
+        upvotes: post.upvote_count || 0,
+        downvotes: post.downvote_count || 0,
         commentCount: post.comment_count || 0,
         userVote: null,
       }));
+      console.log("Mapped posts:", mappedPosts);
       setPosts(mappedPosts);
     } catch (err) {
       console.error("Error fetching posts:", err);
@@ -56,40 +64,12 @@ const Dashboard = () => {
   }, []);
 
   const handleNewPost = async (postData: { title: string; content: string }) => {
-    const token = localStorage.getItem("token");
-    if (!token) {
-      toast({
-        title: "Error",
-        description: "Please log in to post an idea",
-        variant: "destructive",
-      });
-      return;
-    }
+    setShowNewPostForm(false);
+    await fetchPosts();
+  };
 
-    try {
-      const response = await fetch(`${import.meta.env.VITE_REACT_APP_XANO_API_URL}/posts`, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${token}`,
-        },
-        body: JSON.stringify(postData),
-      });
-      if (!response.ok) throw new Error("Failed to create post");
-      await fetchPosts(); // Refetch posts after adding
-      setShowNewPostForm(false);
-      toast({
-        title: "Success",
-        description: "Your idea has been posted!",
-      });
-    } catch (err) {
-      console.error("Error creating post:", err);
-      toast({
-        title: "Error",
-        description: "Failed to post your idea. Please try again.",
-        variant: "destructive",
-      });
-    }
+  const handleDeletePost = (postId: string) => {
+    setPosts(posts.filter(post => post.id !== postId));
   };
 
   return (
@@ -143,7 +123,12 @@ const Dashboard = () => {
             ) : (
               <div>
                 {posts.map((post) => (
-                  <PostCard key={post.id} post={post} />
+                  <PostCard 
+                    key={post.id} 
+                    post={post} 
+                    onVoteUpdate={fetchPosts}
+                    onDelete={() => handleDeletePost(post.id)}
+                  />
                 ))}
               </div>
             )}

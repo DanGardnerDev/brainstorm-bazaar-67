@@ -19,7 +19,9 @@ export const CommentForm = ({ postId, onCommentAdded }: CommentFormProps) => {
     if (!comment.trim()) return;
     
     const token = localStorage.getItem("token");
-    if (!token) {
+    const userId = localStorage.getItem("user_id");
+    const username = localStorage.getItem("username") || "User"; // Fallback to "User" if not set
+    if (!token || !userId) {
       toast({
         title: "Error",
         description: "Please log in to comment",
@@ -37,7 +39,11 @@ export const CommentForm = ({ postId, onCommentAdded }: CommentFormProps) => {
           "Content-Type": "application/json",
           Authorization: `Bearer ${token}`,
         },
-        body: JSON.stringify({ post_id: postId, content: comment }),
+        body: JSON.stringify({ 
+          post_id: postId, 
+          content: comment, 
+          user_id: userId // Send user_id explicitly
+        }),
       });
       if (!response.ok) throw new Error("Failed to post comment");
 

@@ -17,8 +17,8 @@ type LoginValues = z.infer<typeof loginSchema>;
 
 const Login = () => {
   const [isLoading, setIsLoading] = useState(false);
-  const [error, setError] = useState(""); // Added for API error display
-  const navigate = useNavigate(); // For programmatic navigation
+  const [error, setError] = useState("");
+  const navigate = useNavigate();
 
   const form = useForm<LoginValues>({
     resolver: zodResolver(loginSchema),
@@ -38,8 +38,11 @@ const Login = () => {
         body: JSON.stringify(data),
       });
       const result = await response.json();
+      console.log("Login response:", result);
       if (response.ok && result.authToken) {
         localStorage.setItem("token", result.authToken);
+        localStorage.setItem("user_id", String(result.user.id)); // Ensure user_id is a string
+        localStorage.setItem("username", result.user.name);
         navigate("/dashboard");
       } else {
         setError(result.message || "Invalid credentials");
@@ -90,7 +93,7 @@ const Login = () => {
                   </FormItem>
                 )}
               />
-              {error && <p className="text-sm text-[#FF6200]">{error}</p>} {/* Error display */}
+              {error && <p className="text-sm text-[#FF6200]">{error}</p>}
               <div className="text-right">
                 <Link to="/forgot-password" className="text-sm font-medium text-brand-navy hover:underline">
                   Forgot password?

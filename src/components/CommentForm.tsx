@@ -2,10 +2,11 @@ import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { useToast } from "@/hooks/use-toast";
+import { CommentType } from "@/components/Comment";
 
 interface CommentFormProps {
   postId: string;
-  onCommentAdded: (commentText: string) => void;
+  onCommentAdded: (newComment: CommentType) => void;
 }
 
 export const CommentForm = ({ postId, onCommentAdded }: CommentFormProps) => {
@@ -20,7 +21,7 @@ export const CommentForm = ({ postId, onCommentAdded }: CommentFormProps) => {
     
     const token = localStorage.getItem("token");
     const userId = localStorage.getItem("user_id");
-    const username = localStorage.getItem("username") || "User"; // Fallback to "User" if not set
+    const username = localStorage.getItem("username") || "User";
     if (!token || !userId) {
       toast({
         title: "Error",
@@ -42,17 +43,24 @@ export const CommentForm = ({ postId, onCommentAdded }: CommentFormProps) => {
         body: JSON.stringify({ 
           post_id: postId, 
           content: comment, 
-          user_id: userId // Send user_id explicitly
+          user_id: userId 
         }),
       });
       if (!response.ok) throw new Error("Failed to post comment");
+
+      const newComment = await response.json();
 
       toast({
         title: "Comment added",
         description: "Your comment has been posted successfully",
       });
       
-      onCommentAdded(comment);
+      onCommentAdded({
+        id: newComment.id,
+        text: newComment.content,
+        author: { id: userId, username },
+        createdAt: newComment.created_at,
+      });
       setComment("");
     } catch (error) {
       console.error("Error posting comment:", error);

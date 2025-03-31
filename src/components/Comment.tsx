@@ -23,11 +23,6 @@ export const Comment = ({ comment, onDelete }: CommentProps) => {
   const currentUserId = localStorage.getItem("user_id");
   const isAuthor = currentUserId === comment.author.id;
 
-  // Debug logs to verify isAuthor
-  console.log("Comment - currentUserId:", currentUserId);
-  console.log("Comment - comment.author.id:", comment.author.id);
-  console.log("Comment - isAuthor:", isAuthor);
-
   const handleDelete = async () => {
     const token = localStorage.getItem("token");
     if (!token) {
@@ -48,8 +43,12 @@ export const Comment = ({ comment, onDelete }: CommentProps) => {
           "Content-Type": "application/json",
           Authorization: `Bearer ${token}`,
         },
+        body: JSON.stringify({ comment_id: comment.id }),
       });
-      if (!response.ok) throw new Error("Failed to delete comment");
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.message || "Failed to delete comment");
+      }
 
       toast({
         title: "Success",
@@ -61,7 +60,7 @@ export const Comment = ({ comment, onDelete }: CommentProps) => {
       console.error("Error deleting comment:", err);
       toast({
         title: "Error",
-        description: "Failed to delete comment. Please try again.",
+        description: err.message || "Failed to delete comment. Please try again.",
         variant: "destructive",
       });
     }
